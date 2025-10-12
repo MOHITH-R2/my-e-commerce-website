@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{{ product.get('description', 'Check out our amazing product!') }}">
+    <meta name="keywords" content="{{ product.get('name', 'Product') }}, {{ product.get('category', 'General') }}">
+    <title>{{ product.get('name', 'Product') }} - Vivi</title>
+
+    <!-- Structured Data for Google -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": "{{ product.get('name', 'Product') }}",
+      "image": ["{{ url_for('static', filename='images/' + (product.get('image', 'placeholder.jpg')), _external=True) }}"],
+      "description": "{{ product.get('description', 'Check out our amazing product!') }}",
+      "sku": "{{ product.get('id', '000') }}",
+      "offers": {
+        "@type": "Offer",
+        "url": "{{ request.url }}",
+        "priceCurrency": "INR",
+        "price": "{{ product.get('price', 0) }}",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+    </script>
+{% endblock %}
+
+{% block content %}
+<main>
+    <section class="product-detail">
+        <!-- Product Image -->
+        <img src="{{ url_for('static', filename='images/' + (product.get('image', 'placeholder.jpg'))) }}" 
+             alt="{{ product.get('name', 'Product') }} image" class="product-img">
+
+        <!-- Product Info -->
+        <div class="info">
+            <h2>{{ product.get('name', 'Product') }}</h2>
+            <p class="category">Category: {{ product.get('category', 'General') }}</p>
+            <p class="price">₹{{ "%.2f"|format(product.get('price', 0)) }}</p>
+            <p class="desc">{{ product.get('description', 'No description available.') }}</p>
+            <a href="#" class="btn">Add to Cart</a>
+        </div>
+    </section>
+
+    <!-- Related Products Section -->
+    {% if related_products %}
+    <section class="related-products">
+        <h3>Related Products</h3>
+        <div class="grid">
+            {% for item in related_products %}
+            <div class="product-card">
+                <img src="{{ url_for('static', filename='images/' + (item.get('image', 'placeholder.jpg'))) }}" 
+                     alt="{{ item.get('name', 'Product') }} image">
+                <h3>{{ item.get('name', 'Product') }}</h3>
+                <p class="price">₹{{ "%.2f"|format(item.get('price', 0)) }}</p>
+                <a href="{{ url_for('product', id=item.get('id', 0)) }}" class="btn">View Product</a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</main>
+{% endblock %}

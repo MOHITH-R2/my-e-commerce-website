@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Checkout{% endblock %}
+{% block content %}
+{% if success %}
+  <h2>✅ Order placed successfully!</h2>
+  <p>Thank you for shopping with us.</p>
+{% else %}
+  <h2>Checkout</h2>
+  <form method="POST">
+    <input type="text" name="name" placeholder="Your name" required>
+    <textarea name="address" placeholder="Delivery address" required></textarea>
+    <button type="submit">Confirm Order</button>
+  </form>
+{% endif %}
+{% endblock %}
