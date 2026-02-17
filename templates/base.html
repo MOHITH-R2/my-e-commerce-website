@@ -13,7 +13,7 @@
         <div class="logo">Vivi</div>
         <div class="nav-links">
             <a href="{{ url_for('index') }}">Home</a>
-            <a href="{{ url_for('cart') }}" class="cart" data-count="{{ session.get('cart', {})|length }}">Cart</a>
+            <a href="{{ url_for('cart') }}" class="cart" data-count="{{ cart_count }}">Cart</a>
             {% if session.get('user_id') %}
                 <a href="{{ url_for('logout') }}">Logout</a>
             {% else %}
@@ -39,7 +39,7 @@
 </main>
 
 <footer>
-    <p>© 2025 Vivi Store</p>
+    <p>&copy; 2025 Vivi Store</p>
 </footer>
 </body>
 </html>

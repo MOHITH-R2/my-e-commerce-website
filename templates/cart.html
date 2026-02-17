@@ -9,16 +9,16 @@
             <img src="{{ url_for('static', filename='images/' + item.product.image) }}" alt="{{ item.product.name }}">
             <div class="cart-info">
                 <h3>{{ item.product.name }}</h3>
-                <p class="price">₹{{ item.product.price }}</p>
+                <p class="price">Rs.{{ item.product.price }}</p>
                 <p class="qty">Quantity: {{ item.qty }}</p>
-                <p class="subtotal">Subtotal: ₹{{ item.subtotal }}</p>
+                <p class="subtotal">Subtotal: Rs.{{ item.subtotal }}</p>
                 <a href="{{ url_for('add_to_cart', id=item.product.id) }}" class="btn">Add One More</a>
             </div>
         </div>
         {% endfor %}
     </div>
     <div class="cart-total">
-        <h3>Total: ₹{{ total }}</h3>
+        <h3>Total: Rs.{{ total }}</h3>
         <a href="{{ url_for('checkout') }}" class="btn checkout-btn">Proceed to Checkout</a>
     </div>
     {% else %}

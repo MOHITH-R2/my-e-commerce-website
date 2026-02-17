@@ -1,25 +1,22 @@
 {% extends "base.html" %}
 
 {% block head %}
-    <!-- SEO Meta Tags -->
-    <meta name="description" content="{{ product.get('description', 'Check out our amazing product!') }}">
-    <meta name="keywords" content="{{ product.get('name', 'Product') }}, {{ product.get('category', 'General') }}">
-    <title>{{ product.get('name', 'Product') }} - Vivi</title>
-
-    <!-- Structured Data for Google -->
+    <meta name="description" content="{{ product.description or 'Check out our amazing product!' }}">
+    <meta name="keywords" content="{{ product.name }}, {{ product.category or 'General' }}">
+    <title>{{ product.name }} - Vivi</title>
     <script type="application/ld+json">
     {
       "@context": "https://schema.org/",
       "@type": "Product",
-      "name": "{{ product.get('name', 'Product') }}",
-      "image": ["{{ url_for('static', filename='images/' + (product.get('image', 'placeholder.jpg')), _external=True) }}"],
-      "description": "{{ product.get('description', 'Check out our amazing product!') }}",
-      "sku": "{{ product.get('id', '000') }}",
+      "name": "{{ product.name }}",
+      "image": ["{{ url_for('static', filename='images/' + (product.image or 'placeholder.jpg'), _external=True) }}"],
+      "description": "{{ product.description or 'Check out our amazing product!' }}",
+      "sku": "{{ product.id }}",
       "offers": {
         "@type": "Offer",
         "url": "{{ request.url }}",
         "priceCurrency": "INR",
-        "price": "{{ product.get('price', 0) }}",
+        "price": "{{ product.price }}",
         "availability": "https://schema.org/InStock"
       }
     }
@@ -29,32 +26,28 @@
 {% block content %}
 <main>
     <section class="product-detail">
-        <!-- Product Image -->
-        <img src="{{ url_for('static', filename='images/' + (product.get('image', 'placeholder.jpg'))) }}" 
-             alt="{{ product.get('name', 'Product') }} image" class="product-img">
-
-        <!-- Product Info -->
+        <img src="{{ url_for('static', filename='images/' + (product.image or 'placeholder.jpg')) }}"
+             alt="{{ product.name }} image" class="product-img">
         <div class="info">
-            <h2>{{ product.get('name', 'Product') }}</h2>
-            <p class="category">Category: {{ product.get('category', 'General') }}</p>
-            <p class="price">₹{{ "%.2f"|format(product.get('price', 0)) }}</p>
-            <p class="desc">{{ product.get('description', 'No description available.') }}</p>
-            <a href="#" class="btn">Add to Cart</a>
+            <h2>{{ product.name }}</h2>
+            <p class="category">Category: {{ product.category or 'General' }}</p>
+            <p class="price">Rs.{{ "%.2f"|format(product.price) }}</p>
+            <p class="desc">{{ product.description or 'No description available.' }}</p>
+            <a href="{{ url_for('add_to_cart', id=product.id) }}" class="btn">Add to Cart</a>
         </div>
     </section>
 
-    <!-- Related Products Section -->
     {% if related_products %}
     <section class="related-products">
         <h3>Related Products</h3>
         <div class="grid">
             {% for item in related_products %}
             <div class="product-card">
-                <img src="{{ url_for('static', filename='images/' + (item.get('image', 'placeholder.jpg'))) }}" 
-                     alt="{{ item.get('name', 'Product') }} image">
-                <h3>{{ item.get('name', 'Product') }}</h3>
-                <p class="price">₹{{ "%.2f"|format(item.get('price', 0)) }}</p>
-                <a href="{{ url_for('product', id=item.get('id', 0)) }}" class="btn">View Product</a>
+                <img src="{{ url_for('static', filename='images/' + (item.image or 'placeholder.jpg')) }}"
+                     alt="{{ item.name }} image">
+                <h3>{{ item.name }}</h3>
+                <p class="price">Rs.{{ "%.2f"|format(item.price) }}</p>
+                <a href="{{ url_for('product', id=item.id) }}" class="btn">View Product</a>
             </div>
             {% endfor %}
         </div>

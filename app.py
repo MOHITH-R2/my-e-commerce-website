@@ -1,9 +1,17 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+import os
+
+from flask import Flask, abort, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+from sqlalchemy import or_
+
+from models import db, Product, User
 
 app = Flask(__name__)
-app.secret_key = "change_this_to_a_random_secret"
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-change-this-secret")
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///store.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+db.init_app(app)
 
 # -----------------------------
 # Initialize cart in session
@@ -12,6 +20,12 @@ app.secret_key = "change_this_to_a_random_secret"
 def before_request():
     if 'cart' not in session:
         session['cart'] = {}
+
+@app.context_processor
+def inject_cart_count():
+    cart = session.get("cart", {})
+    count = sum(cart.values())
+    return {"cart_count": count}
 
 # -----------------------------
 # Login required decorator
@@ -25,30 +39,39 @@ def login_required(f):
     return decorated_function
 
 # -----------------------------
-# Product Data (sample)
-# -----------------------------
-PRODUCTS = [
-    {'id':1,'name':'T-Shirt','price':499,'category':'Clothing','image':'tshirts.jpg','description':'Comfortable cotton t-shirt'},
-    {'id':2,'name':'Shoes','price':2999,'category':'Footwear','image':'shoes.jpg','description':'Stylish running shoes'},
-    {'id':3,'name':'Phone','price':15000,'category':'Electronics','image':'phone.png','description':'Latest smartphone'},
-    {'id':4,'name':'Headphones','price':2500,'category':'Electronics','image':'headphones.png','description':'Wireless headphones'},
-    {'id':5,'name':'Laptop','price':55000,'category':'Electronics','image':'laptop.png','description':'High performance laptop'},
-]
+def seed_products():
+    if Product.query.first():
+        return
+
+    sample_products = [
+        Product(name="T-Shirt", price=499, category="Clothing", image="tshirts.jpg", description="Comfortable cotton t-shirt"),
+        Product(name="Shoes", price=2999, category="Footwear", image="shoes.jpg", description="Stylish running shoes"),
+        Product(name="Phone", price=15000, category="Electronics", image="phone.png", description="Latest smartphone"),
+        Product(name="Headphones", price=2500, category="Electronics", image="headphones.png", description="Wireless headphones"),
+        Product(name="Laptop", price=55000, category="Electronics", image="laptop.png", description="High performance laptop"),
+    ]
+    db.session.add_all(sample_products)
+    db.session.commit()
+
+with app.app_context():
+    db.create_all()
+    seed_products()
 
 # -----------------------------
 # Routes
 # -----------------------------
 @app.route('/')
 def index():
-    categories = list(set([p['category'] for p in PRODUCTS]))
-    return render_template('index.html', products=PRODUCTS, categories=categories)
+    products = Product.query.order_by(Product.id.asc()).all()
+    categories = sorted({p.category for p in products if p.category})
+    return render_template('index.html', products=products, categories=categories)
 
 @app.route('/product/<int:id>')
 def product(id):
-    product = next((p for p in PRODUCTS if p['id']==id), None)
+    product = Product.query.get(id)
     if not product:
-        return "Product not found", 404
-    related = [p for p in PRODUCTS if p['id'] != id]
+        abort(404)
+    related = Product.query.filter(Product.id != id).limit(4).all()
     return render_template('product.html', product=product, related_products=related)
 
 # -----------------------------
@@ -56,6 +79,8 @@ def product(id):
 # -----------------------------
 @app.route('/add_to_cart/<int:id>')
 def add_to_cart(id):
+    if not Product.query.get(id):
+        abort(404)
     cart = session.get('cart', {})
     cart[str(id)] = cart.get(str(id), 0) + 1
     session['cart'] = cart
@@ -67,11 +92,12 @@ def cart():
     cart = session.get('cart', {})
     items = []
     total = 0
-    for p in PRODUCTS:
-        qty = cart.get(str(p['id']), 0)
+    products = Product.query.filter(Product.id.in_([int(i) for i in cart.keys()])).all() if cart else []
+    for p in products:
+        qty = cart.get(str(p.id), 0)
         if qty > 0:
-            items.append({'product': p, 'qty': qty, 'subtotal': p['price']*qty})
-            total += p['price']*qty
+            items.append({'product': p, 'qty': qty, 'subtotal': p.price * qty})
+            total += p.price * qty
     return render_template('cart.html', items=items, total=total)
 
 @app.route('/checkout', methods=['GET','POST'])
@@ -83,22 +109,33 @@ def checkout():
     return render_template('checkout.html', success=False)
 
 # -----------------------------
-# Simple User system (session-based)
+# User system (database-backed)
 # -----------------------------
-USERS = {}  # username: {password_hash, username}
-
 @app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
         username = request.form.get('username','').strip()
+        email = request.form.get('email','').strip().lower()
         password = request.form.get('password','')
+        confirm_password = request.form.get('confirm_password','')
         if not username or not password:
             flash('Fill all fields', 'error')
             return redirect(url_for('register'))
-        if username in USERS:
-            flash('Username exists', 'error')
+        if not email:
+            flash('Email is required', 'error')
             return redirect(url_for('register'))
-        USERS[username] = {'username': username, 'password_hash': generate_password_hash(password)}
+        if password != confirm_password:
+            flash('Passwords do not match', 'error')
+            return redirect(url_for('register'))
+
+        existing_user = User.query.filter(or_(User.username == username, User.email == email)).first()
+        if existing_user:
+            flash('Username or email already exists', 'error')
+            return redirect(url_for('register'))
+
+        user = User(username=username, email=email, password_hash=generate_password_hash(password))
+        db.session.add(user)
+        db.session.commit()
         flash('Account created. Login!', 'success')
         return redirect(url_for('login'))
     return render_template('register.html')
@@ -108,13 +145,16 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username','').strip()
         password = request.form.get('password','')
-        user = USERS.get(username)
-        if not user or not check_password_hash(user['password_hash'], password):
+        next_url = request.args.get("next", "")
+        user = User.query.filter(or_(User.username == username, User.email == username.lower())).first()
+        if not user or not check_password_hash(user.password_hash, password):
             flash('Invalid credentials', 'error')
             return redirect(url_for('login'))
-        session['user_id'] = username
-        session['username'] = username
-        flash(f'Welcome back {username}!', 'success')
+        session['user_id'] = user.id
+        session['username'] = user.username
+        flash(f'Welcome back {user.username}!', 'success')
+        if next_url.startswith("/"):
+            return redirect(next_url)
         return redirect(url_for('index'))
     return render_template('login.html')
 
@@ -128,4 +168,5 @@ def logout():
 # Run app
 # -----------------------------
 if __name__ == '__main__':
-    app.run(debug=True)
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    app.run(debug=debug)
